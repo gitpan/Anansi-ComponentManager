@@ -48,7 +48,7 @@ required to have the same base namespace as it's manager.
 =cut
 
 
-our $VERSION = '0.01';
+our $VERSION = '0.02';
 
 use base qw(Anansi::Singleton);
 
@@ -139,6 +139,7 @@ sub addChannel {
 
 
 =head2 addComponent
+
  my $identification = Anansi::ComponentManager->addComponent(undef, someParameter => 'some value');
  if(defined($identification));
 

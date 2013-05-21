@@ -3,4 +3,6 @@ Revision history for Perl extension Anansi::ComponentManager.
 0.01  Fri Apr 12 00:46:55 2013
 	- original version; created by h2xs 1.23 with options
 		-AX Anansi::ComponentManager
+0.02  Mon May 20 11:02:54 2013
+	- modified the "addComponent" POD to correct a fault.
 
