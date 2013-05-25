@@ -42,13 +42,14 @@ This is a base module definition for the management of modules that deal with
 related functionality.  This management module provides the mechanism to handle
 multiple related functionality modules at the same time, loading and creating an
 object of the most appropriate module to handle each situation.  In order to
-simplify the recognition of related "component" modules, each component is
-required to have the same base namespace as it's manager.
+simplify the recognition of related L<Anansi::Component> modules, each component
+is required to have the same base namespace as it's manager.  See
+L<Anansi::Singleton> for inherited methods.
 
 =cut
 
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 use base qw(Anansi::Singleton);
 
@@ -116,18 +117,18 @@ sub addChannel {
     $CHANNELS{$package} = {} if(!defined($CHANNELS{$package}));
     foreach my $key (keys(%parameters)) {
         if(ref($parameters{$key}) =~ /^CODE$/i) {
-            %{$CHANNELS{$package}}->{$key} = sub {
+            ${$CHANNELS{$package}}{$key} = sub {
                 my ($self, $channel, @PARAMETERS) = @_;
                 return &{$parameters{$key}}($self, $channel, (@PARAMETERS));
             };
         } elsif($parameters{$key} =~ /^[a-zA-Z]+[a-zA-Z0-9_]*(::[a-zA-Z]+[a-zA-Z0-9_]*)*$/) {
             if(exists(&{$parameters{$key}})) {
-                %{$CHANNELS{$package}}->{$key} = sub {
+                ${$CHANNELS{$package}}{$key} = sub {
                     my ($self, $channel, @PARAMETERS) = @_;
                     return &{\&{$parameters{$key}}}($self, $channel, (@PARAMETERS));
                 };
             } else {
-                %{$CHANNELS{$package}}->{$key} = sub {
+                ${$CHANNELS{$package}}{$key} = sub {
                     my ($self, $channel, @PARAMETERS) = @_;
                     return &{\&{$package.'::'.$parameters{$key}}}($self, $channel, (@PARAMETERS));
                 };
@@ -179,7 +180,7 @@ sub addComponent {
     $package = ref($self) if(ref($self) !~ /^$/);
     $identification = $self->componentIdentification() if(!defined($identification));
     if(defined($COMPONENTS{$package})) {
-        return $identification if(defined(%{$COMPONENTS{$package}}->{$identification}));
+        return $identification if(defined(${$COMPONENTS{$package}}{$identification}));
     }
     my $components = $self->components();
     return if(ref($components) !~ /^ARRAY$/i);
@@ -194,7 +195,7 @@ sub addComponent {
     }
     return if(!defined($OBJECT));
     $COMPONENTS{$package} = {} if(!defined($COMPONENTS{$package}));
-    %{$COMPONENTS{$package}}->{$identification} = $OBJECT;;
+    ${$COMPONENTS{$package}}{$identification} = $OBJECT;;
     $IDENTIFICATIONS{$identification} = 1;
     return $identification;
 }
@@ -234,8 +235,8 @@ sub channel {
     my ($channel, @parameters) = @_;
     return if(ref($channel) !~ /^$/);
     return if(!defined($CHANNELS{$package}));
-    return if(!defined(%{$CHANNELS{$package}}->{$channel}));
-    return &{%{$CHANNELS{$package}}->{$channel}}($self, $channel, (@parameters));
+    return if(!defined(${$CHANNELS{$package}}{$channel}));
+    return &{${$CHANNELS{$package}}{$channel}}($self, $channel, (@parameters));
 }
 
 
@@ -282,8 +283,8 @@ sub component {
     return [( keys(%{$COMPONENTS{$package}}) )] if(0 == scalar(@_));
     my $identification = shift(@_);
     return if(!defined($identification));
-    return if(!defined(%{$COMPONENTS{$package}}->{$identification}));
-    my $OBJECT = %{$COMPONENTS{$package}}->{$identification};
+    return if(!defined(${$COMPONENTS{$package}}{$identification}));
+    my $OBJECT = ${$COMPONENTS{$package}}{$identification};
     return $OBJECT->channel() if(0 == scalar(@_));
     my ($channel, @parameters) = @_;
     return $OBJECT->channel($channel, (@parameters));
@@ -426,10 +427,10 @@ sub removeChannel {
     return 0 if(0 == scalar(@parameters));
     return 0 if(!defined($CHANNELS{$package}));
     foreach my $key (@parameters) {
-        return 0 if(!defined(%{$CHANNELS{$package}}->{$key}));
+        return 0 if(!defined(${$CHANNELS{$package}}{$key}));
     }
     foreach my $key (@parameters) {
-        delete %{$CHANNELS{$package}}->{$key};
+        delete ${$CHANNELS{$package}}{$key};
     }
     return 1;
 }
@@ -455,10 +456,10 @@ sub removeComponent {
     return 0 if(0 == scalar(@parameters));
     return 0 if(!defined($COMPONENTS{$package}));
     foreach my $key (@parameters) {
-        return 0 if(!defined(%{$COMPONENTS{$package}}->{$key}));
+        return 0 if(!defined(${$COMPONENTS{$package}}{$key}));
     }
     foreach my $key (@parameters) {
-        delete %{$COMPONENTS{$package}}->{$key};
+        delete ${$COMPONENTS{$package}}{$key};
     }
     return 1;
 }
