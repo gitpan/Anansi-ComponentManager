@@ -7,34 +7,43 @@ Anansi::ComponentManager - A base module definition for related process manageme
 
 =head1 SYNOPSIS
 
- package Anansi::ComponentManagerExample;
+    package Anansi::ComponentManagerExample;
 
- use base qw(Anansi::ComponentManager);
+    use base qw(Anansi::ComponentManager);
 
- sub doSomethingElse {
-     my ($self, $channel, %parameters) = @_;
- }
+    sub doSomethingElse {
+        my ($self, $channel, %parameters) = @_;
+    }
 
- Anansi::ComponentManager::addChannel('Anansi::ComponentManagerExample', 'SOME_MANAGER_CHANNEL' => Anansi::ComponentManagerExample->doSomethingElse);
+    Anansi::ComponentManager::addChannel(
+        'Anansi::ComponentManagerExample',
+        'SOME_MANAGER_CHANNEL' => Anansi::ComponentManagerExample->doSomethingElse
+    );
 
- 1;
+    1;
 
- package Anansi::ComponentManagerExample::ComponentExample;
+    package Anansi::ComponentManagerExample::ComponentExample;
 
- use base qw(Anansi::Component);
+    use base qw(Anansi::Component);
 
- sub validate {
-  return 1;
- }
+    sub validate {
+        return 1;
+    }
 
- sub doSomething {
-     my ($self, $channel, %parameters) = @_;
- }
+    sub doSomething {
+        my ($self, $channel, %parameters) = @_;
+    }
 
- Anansi::Component::addChannel('Anansi::ComponentManagerExample::ComponentExample', 'VALIDATE_AS_APPROPRIATE' => Anansi::ComponentManagerExample::ComponentExample->validate);
- Anansi::Component::addChannel('Anansi::ComponentManagerExample::ComponentExample', 'SOME_COMPONENT_CHANNEL' => Anansi::ComponentManagerExample::ComponentExample->doSomething);
+    Anansi::Component::addChannel(
+        'Anansi::ComponentManagerExample::ComponentExample',
+        'VALIDATE_AS_APPROPRIATE' => Anansi::ComponentManagerExample::ComponentExample->validate
+    );
+    Anansi::Component::addChannel(
+        'Anansi::ComponentManagerExample::ComponentExample',
+        'SOME_COMPONENT_CHANNEL' => Anansi::ComponentManagerExample::ComponentExample->doSomething
+    );
 
- 1;
+    1;
 
 =head1 DESCRIPTION
 
@@ -44,12 +53,13 @@ multiple related functionality modules at the same time, loading and creating an
 object of the most appropriate module to handle each situation.  In order to
 simplify the recognition of related L<Anansi::Component> modules, each component
 is required to have the same base namespace as it's manager.  See
-L<Anansi::Singleton> for inherited methods.
+L<Anansi::Singleton> for inherited methods.  Makes use of L<base>, and
+L<Anansi::Actor>.
 
 =cut
 
 
-our $VERSION = '0.03';
+our $VERSION = '0.04';
 
 use base qw(Anansi::Singleton);
 
@@ -68,25 +78,37 @@ my %IDENTIFICATIONS;
 
 =head2 addChannel
 
- if(1 == Anansi::ComponentManager->addChannel(
-  someChannel => 'Some::subroutine',
-  anotherChannel => Some::subroutine,
-  yetAnotherChannel => $AN_OBJECT->someSubroutine,
-  etcChannel => sub {
-   my $self = shift(@_);
-  }
- ));
+    if(1 == Anansi::ComponentManager->addChannel(
+        someChannel => 'Some::subroutine',
+        anotherChannel => Some::subroutine,
+        yetAnotherChannel => $AN_OBJECT->someSubroutine,
+        etcChannel => sub {
+            my $self = shift(@_);
+        }
+    ));
 
- # OR
+    if(1 == $OBJECT->addChannel(
+        someChannel => 'Some::subroutine',
+        anotherChannel => Some::subroutine,
+        yetAnotherChannel => $AN_OBJECT->someSubroutine,
+        etcChannel => sub {
+            my $self = shift(@_);
+        }
+    ));
 
- if(1 == $OBJECT->addChannel(
-  someChannel => 'Some::subroutine',
-  anotherChannel => Some::subroutine,
-  yetAnotherChannel => $AN_OBJECT->someSubroutine,
-  etcChannel => sub {
-   my $self = shift(@_);
-  }
- ));
+=over 4
+
+=item self I<(Blessed Hash B<or> String, Required)>
+
+Either an object or a string of this namespace.
+
+=item parameters I<(Hash, Required)>
+
+Named parameters where the key is the name of the channel and the value is
+either a namespace string or code reference to an existing subroutine or an
+anonymous subroutine definition.
+
+=back
 
 Defines the responding subroutine for the named component manager channels.
 
@@ -141,23 +163,46 @@ sub addChannel {
 
 =head2 addComponent
 
- my $identification = Anansi::ComponentManager->addComponent(undef, someParameter => 'some value');
- if(defined($identification));
+    my $identification = Anansi::ComponentManager->addComponent(
+        undef,
+        someParameter => 'some value'
+    );
+    if(defined($identification));
 
- # OR
+    my $identification = $OBJECT->addComponent(
+        undef,
+        someParameter => 'some value'
+    );
+    if(defined($identification));
 
- my $identification = $OBJECT->addComponent(undef, someParameter => 'some value');
- if(defined($identification));
+    my $identification = Anansi::ComponentManager->addComponent(
+        'some identifier',
+        someParameter => 'some value'
+    );
+    if(defined($identification));
 
- # OR
+    my $identification = $OBJECT->addComponent(
+        'some identifier',
+        someParameter => 'some value'
+    );
+    if(defined($identification));
 
- my $identification = Anansi::ComponentManager->addComponent('some identifier', someParameter => 'some value');
- if(defined($identification));
+=over 4
 
- # OR
+=item self I<(Blessed Hash B<or> String, Required)>
 
- my $identification = $OBJECT->addComponent('some identifier', someParameter => 'some value');
- if(defined($identification));
+An object or string of this namespace.
+
+=item identification I<(String, Required)>
+
+The name to associate with the component.
+
+=item parameters I<(Scalar B<or> Array, Optional)>
+
+The list of parameters to pass to the I<VALIDATE_AS_APPROPRIATE> channel of
+every component module found on the system.
+
+=back
 
 Creates a new component object and stores the object for indirect interaction by
 the implementer of the component manager.  A unique identifier for the object
@@ -167,9 +212,9 @@ referencing the object.
 Note: The process of selecting the component to use requires each component to
 validate it's own appropriateness.  Therefore this process makes use of a
 VALIDATE_AS_APPROPRIATE component channel which is expected to return either a
-'1' (one) or a '0' (zero) representing TRUE or FALSE.  If this component channel
-does not exist it is assumed that the component is not designed to be
-implemented in this way.
+B<1> I<(one)> or a B<0> I<(zero)> representing B<appropriate> or
+B<inappropriate>.  If this component channel does not exist it is assumed that
+the component is not designed to be implemented in this way.
 
 =cut
 
@@ -195,7 +240,10 @@ sub addComponent {
     }
     return if(!defined($OBJECT));
     $COMPONENTS{$package} = {} if(!defined($COMPONENTS{$package}));
-    ${$COMPONENTS{$package}}{$identification} = $OBJECT;;
+    ${$COMPONENTS{$package}}{$identification} = $OBJECT;
+    $self->uses(
+        'COMPONENT_'.$identification => $OBJECT,
+    );
     $IDENTIFICATIONS{$identification} = 1;
     return $identification;
 }
@@ -203,22 +251,36 @@ sub addComponent {
 
 =head2 channel
 
- Anansi::ComponentManager->channel('Anansi::ComponentManager::Example');
+    Anansi::ComponentManager->channel('Anansi::ComponentManager::Example');
 
- # OR
+    $OBJECT->channel();
 
- $OBJECT->channel();
+    Anansi::ComponentManager->channel(
+        'Anansi::ComponentManager::Example',
+        'someChannel',
+        someParameter => 'something'
+    );
 
- # OR
+    $OBJECT->channel('someChannel', someParameter => 'something');
 
- Anansi::ComponentManager->channel('Anansi::ComponentManager::Example', 'someChannel', someParameter => 'something');
+=over 4
 
- # OR
+=item self I<(Blessed Hash B<or> String, Required)>
 
- $OBJECT->channel('someChannel', someParameter => 'something');
+An object or string of this namespace.
 
-Either returns an ARRAY of the available channels or passes the supplied
-parameters to the named channel.  Returns UNDEF on error.
+=item channel I<(String, Optional)>
+
+The name that is associated with the component's channel.
+
+=item parameters I<(Scalar B<or> Array, Optional)>
+
+The list of parameters to pass to the component's channel.
+
+=back
+
+Either returns an array of the available channels or passes the supplied
+parameters to the named channel.  Returns B<undef> on B<error>.
 
 =cut
 
@@ -242,35 +304,62 @@ sub channel {
 
 =head2 component
 
- my $returned;
- my $channels = Anansi::ComponentManager->component($component);
- if(defined($channels)) {
-     foreach my $channel (@{$channels}) {
-         next if('SOME_CHANNEL' ne $channel);
-         $returned = Anansi::ComponentManager->component($component, $channel, anotherParameter => 'another value');
-     }
- }
+    my $returned;
+    my $channels = Anansi::ComponentManager->component($component);
+    if(defined($channels)) {
+        foreach my $channel (@{$channels}) {
+            next if('SOME_CHANNEL' ne $channel);
+            $returned = Anansi::ComponentManager->component(
+                $component,
+                $channel,
+                anotherParameter => 'another value'
+            );
+        }
+    }
 
- # OR
+    my @returned;
+    $OBJECT->addComponent(undef, someParameter => 'some value');
+    my $components = $OBJECT->component();
+    if(defined($components)) {
+        foreach my $component (@{$components}) {
+            my $channels = $OBJECT->component($component);
+            if(defined($channels)) {
+                foreach my $channel (@{$channels}) {
+                    next if('SOME_CHANNEL' ne $channel);
+                    push(@returned, $OBJECT->component(
+                        $component,
+                        $channel,
+                        anotherParameter => 'another value'
+                    ));
+                }
+            }
+        }
+    }
 
- my @returned;
- $OBJECT->addComponent(undef, someParameter => 'some value');
- my $components = $OBJECT->component();
- if(defined($components)) {
-     foreach my $component (@{$components}) {
-         my $channels = $OBJECT->component($component);
-         if(defined($channels)) {
-             foreach my $channel (@{$channels}) {
-                 next if('SOME_CHANNEL' ne $channel);
-                 push(@returned, $OBJECT->component($component, $channel, anotherParameter => 'another value'));
-             }
-         }
-     }
- }
+=over 4
 
-Either returns an ARRAY of all of the available components or an ARRAY of all
+=item self I<(Blessed Hash B<or> String, Required)>
+
+An object or string of this namespace.
+
+=item identification I<(String, Optional)>
+
+The name associated with the component.
+
+=item channel I<(String, Optional)>
+
+The name that is associated with the component's channel.
+
+=item parameters I<(Scalar B<or> Array, Optional)>
+
+The list of parameters to pass to the component's channel.
+
+=back
+
+Either returns an array of all of the available components or an array of all
 of the channels available through an identified component or interacts with an
-identified component using one of it's channels.
+identified component using one of it's channels.  Returns an B<undef> on
+B<failure>.
 
 =cut
 
@@ -293,13 +382,20 @@ sub component {
 
 =head2 componentIdentification
 
- my $identification = Anansi::ComponentManager->componentIdentification();
+    my $identification = Anansi::ComponentManager->componentIdentification();
 
- # OR
+    my $identification = $OBJECT->componentIdentification();
 
- my $identification = $OBJECT->componentIdentification();
+=over 4
 
-Generates a unique identification STRING.  Intended to be replaced by an extending module.  Indirectly called.
+=item self I<(Blessed Hash, Required)>
+
+An object of this namespace.
+
+=back
+
+Generates a unique identification string.  Intended to be replaced by an
+extending module.  Indirectly called.
 
 =cut
 
@@ -319,28 +415,40 @@ sub componentIdentification {
 
 =head2 components
 
- my $components = Anansi::ComponentManager->components();
- if(ref($components) =~ /^ARRAY$/i) {
-  foreach my $component (@{$components}) {
-  }
- }
+    my $components = Anansi::ComponentManager->components();
+    if(ref($components) =~ /^ARRAY$/i) {
+        foreach my $component (@{$components}) {
+        }
+    }
 
- # OR
+    my $components = Anansi::ComponentManager::components('Some::Namespace');
+    if(ref($components) =~ /^ARRAY$/i) {
+        foreach my $component (@{$components}) {
+        }
+    }
 
- my $components = $OBJECT->components();
- if(ref($components) =~ /^ARRAY$/i) {
-  foreach my $component (@{$components}) {
-  }
- }
+    my $components = $OBJECT->components();
+    if(ref($components) =~ /^ARRAY$/i) {
+        foreach my $component (@{$components}) {
+        }
+    }
 
-Either returns an ARRAY of all of the available components or an ARRAY
+=over 4
+
+=item self I<(Blessed Hash B<or> String, Required)>
+
+An object or string of this namespace.
+
+=back
+
+Either returns an array of all of the available components or an array
 containing the current component manager's components.
 
 =cut
 
 
 sub components {
-    my ($self, %parameters) = @_;
+    my $self = shift(@_);
     my $package = $self;
     $package = ref($package) if(ref($package) !~ /^$/);
     my %modules = Anansi::Actor->modules();
@@ -368,54 +476,55 @@ sub components {
 
 =head2 finalise
 
-Called just before component manager instance object destruction.
-Indirectly called.
+Inherited from L<Anansi::Singleton>.
 
 =cut
-
-
-# See: 'Anansi::Singleton::finalise'.
 
 
 =head2 initialise
 
-Called just after component manager instance object creation.  Indirectly
-called.
+Inherited from L<Anansi::Singleton>.
 
 =cut
-
-
-# See: 'Anansi::Singleton::initialise'.
 
 
 =head2 new
 
- my $OBJECT = Anansi::ComponentManagerExample->new();
-
- # OR
-
- my $OBJECT = Anansi::ComponentManagerExample->new(
-  SETTING => 'example',
- );
-
-Instantiates an object instance of a component manager module.  Indirectly
-called via an extending module.
+Inherited from L<Anansi::Singleton>.
 
 =cut
 
 
-# See: 'Anansi::Singleton::new'.
-
-
 =head2 removeChannel
 
- if(1 == Anansi::ComponentManager::removeChannel('Anansi::ComponentManagerExample', 'someChannel', 'anotherChannel', 'yetAnotherChannel', 'etcChannel'));
+    if(1 == Anansi::ComponentManager::removeChannel(
+        'Anansi::ComponentManagerExample',
+        'someChannel',
+        'anotherChannel',
+        'yetAnotherChannel',
+        'etcChannel'
+    ));
 
- # OR
+    if(1 == $OBJECT->removeChannel(
+        'someChannel',
+        'anotherChannel',
+        'yetAnotherChannel',
+        'etcChannel'
+    ));
 
- if(1 == $OBJECT->removeChannel('someChannel', 'anotherChannel', 'yetAnotherChannel', 'etcChannel'));
+=over 4
 
-Undefines the responding subroutine for the named component manager channels.
+=item self I<(Blessed Hash B<or> String, Required)>
+
+An object or string of this namespace.
+
+=item parameters I<(Scalar B<or> Array, Required)>
+
+The channels to remove.
+
+=back
+
+Undefines the responding subroutine for the named component manager's channels.
 
 =cut
 
@@ -438,13 +547,35 @@ sub removeChannel {
 
 =head2 removeComponent
 
- if(1 == Anansi::ComponentManager::removeComponent('Anansi::ComponentManagerExample', 'someComponent', 'anotherComponent', 'yetAnotherComponent', 'etcComponent'));
+    if(1 == Anansi::ComponentManager::removeComponent(
+        'Anansi::ComponentManagerExample',
+        'someComponent',
+        'anotherComponent',
+        'yetAnotherComponent',
+        'etcComponent'
+    ));
 
- # OR
+    if(1 == $OBJECT->removeComponent(
+        'someComponent',
+        'anotherComponent',
+        'yetAnotherComponent',
+        'etcComponent'
+    ));
 
- if(1 == $OBJECT->removeComponent('someComponent', 'anotherComponent', 'yetAnotherComponent', 'etcComponent'));
+=over 4
 
-Releases a named component instance for garbage collection.
+=item self I<(Blessed Hash B<or> String, Required)>
+
+An object or string of this namespace.
+
+=item parameters I<(Array, Required)>
+
+A string or array of strings containing the name of a component.
+
+=back
+
+Releases a named component instance for garbage collection.  Returns a B<1>
+I<(one)> or a B<0> I<(zero)> representing B<success> or B<failure>.
 
 =cut
 
@@ -460,14 +591,25 @@ sub removeComponent {
     }
     foreach my $key (@parameters) {
         delete ${$COMPONENTS{$package}}{$key};
+        $self->used('COMPONENT_'.$key);
     }
     return 1;
 }
 
 
+=head1 NOTES
+
+This module is designed to make it simple, easy and quite fast to code your
+design in perl.  If for any reason you feel that it doesn't achieve these goals
+then please let me know.  I am here to help.  All constructive criticisms are
+also welcomed.
+
+=cut
+
+
 =head1 AUTHOR
 
-Kevin Treleaven <kevin AT treleaven DOT net>
+Kevin Treleaven <kevin I<AT> treleaven I<DOT> net>
 
 =cut
 
