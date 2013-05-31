@@ -1,4 +1,4 @@
-Anansi-ComponentManager version 0.04
+Anansi-ComponentManager version 0.05
 ====================================
 
 The README is used to introduce the module and provide instructions on
@@ -26,6 +26,7 @@ DEPENDENCIES
 This module requires these other modules and libraries:
 
   Anansi::Actor
+  Anansi::ObjectManager
   Anansi::Singleton
 
 COPYRIGHT AND LICENCE

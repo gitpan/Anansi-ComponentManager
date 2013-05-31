@@ -11,3 +11,5 @@ Revision history for Perl extension Anansi::ComponentManager.
 0.04  Sat May 25 02:29:52 2013
         - modified "addComponent" and "removeComponent" to use "Anansi::Class::uses" and "Anansi::Class::used".
         - modified the POD to reflect more concise examples and include method parameter.
+0.05  Thu May 30 11:28:56 2013
+	- made the POD more interactive.

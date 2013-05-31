@@ -52,14 +52,14 @@ related functionality.  This management module provides the mechanism to handle
 multiple related functionality modules at the same time, loading and creating an
 object of the most appropriate module to handle each situation.  In order to
 simplify the recognition of related L<Anansi::Component> modules, each component
-is required to have the same base namespace as it's manager.  See
-L<Anansi::Singleton> for inherited methods.  Makes use of L<base>, and
-L<Anansi::Actor>.
+is required to have the same base namespace as it's manager.  Uses
+L<Anansi::Actor>, L<Anansi::Component> I<(indirectly)>, L<Anansi::Singleton> and
+L<base>.
 
 =cut
 
 
-our $VERSION = '0.04';
+our $VERSION = '0.05';
 
 use base qw(Anansi::Singleton);
 
@@ -71,7 +71,89 @@ my %COMPONENTS;
 my %IDENTIFICATIONS;
 
 
-=head1 METHODS
+=head1 INHERITED METHODS
+
+=cut
+
+
+=head2 DESTROY
+
+Declared in L<Anansi::Singleton>.
+
+=cut
+
+
+=head2 finalise
+
+Declared in L<Anansi::Class>.  Intended to be overridden by an extending module.
+
+=cut
+
+
+=head2 fixate
+
+Declared in L<Anansi::Singleton>.  Intended to be overridden by an extending module.
+
+=cut
+
+
+=head2 implicate
+
+Declared in L<Anansi::Class>.  Intended to be overridden by an extending module.
+
+=cut
+
+
+=head2 import
+
+Declared in L<Anansi::Class>.
+
+=cut
+
+
+=head2 initialise
+
+Declared in L<Anansi::Class>.  Intended to be overridden by an extending module.
+
+=cut
+
+
+=head2 new
+
+Declared in L<Anansi::Singleton>.
+
+=cut
+
+
+=head2 old
+
+Declared in L<Anansi::Class>.
+
+=cut
+
+
+=head2 reinitialise
+
+Declared in L<Anansi::Singleton>.  Intended to be overridden by an extending module.
+
+=cut
+
+
+=head2 used
+
+Declared in L<Anansi::Class>.
+
+=cut
+
+
+=head2 uses
+
+Declared in L<Anansi::Class>.
+
+=cut
+
+
+head1 METHODS
 
 =cut
 
@@ -472,27 +554,6 @@ sub components {
     }
     return [(@components)];
 }
-
-
-=head2 finalise
-
-Inherited from L<Anansi::Singleton>.
-
-=cut
-
-
-=head2 initialise
-
-Inherited from L<Anansi::Singleton>.
-
-=cut
-
-
-=head2 new
-
-Inherited from L<Anansi::Singleton>.
-
-=cut
 
 
 =head2 removeChannel
