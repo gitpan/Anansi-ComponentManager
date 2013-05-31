@@ -59,7 +59,7 @@ L<base>.
 =cut
 
 
-our $VERSION = '0.05';
+our $VERSION = '0.06';
 
 use base qw(Anansi::Singleton);
 
@@ -153,7 +153,7 @@ Declared in L<Anansi::Class>.
 =cut
 
 
-head1 METHODS
+=head1 METHODS
 
 =cut
 

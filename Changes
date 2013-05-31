@@ -13,3 +13,5 @@ Revision history for Perl extension Anansi::ComponentManager.
         - modified the POD to reflect more concise examples and include method parameter.
 0.05  Thu May 30 11:28:56 2013
 	- made the POD more interactive.
+0.06  Fri May 31 16:06:34 2013
+	- fixed a POD bug that was introduced in the last version.
