@@ -26,7 +26,21 @@ Anansi::ComponentManager - A base module definition for related process manageme
 
     use base qw(Anansi::Component);
 
+    sub priority {
+        my ($self, $channel, %parameters) = @_;
+        my $PRIORITY = {
+            'Anansi::ComponentManagerExample::AnotherComponentExample' => 'HIGHER',
+            'Anansi::ComponentManagerExample::YetAnotherComponentExample' => 'LOWER',
+            'Anansi::ComponentManagerExample::SomeOtherComponentExample' => 'SAME',
+            'Anansi::ComponentManagerExample::ADifferentComponentExample' => 1,
+            'Anansi::ComponentManagerExample::EtcComponentExample' => 0,
+            'Anansi::ComponentManagerExample::AndSoOnComponentExample' => -1,
+        };
+        return $PRIORITY;
+    }
+
     sub validate {
+        my ($self, $channel, %parameters) = @_;
         return 1;
     }
 
@@ -34,6 +48,10 @@ Anansi::ComponentManager - A base module definition for related process manageme
         my ($self, $channel, %parameters) = @_;
     }
 
+    Anansi::Component::addChannel(
+        'Anansi::ComponentManagerExample::ComponentExample',
+        'PRIORITY_OF_VALIDATE' => Anansi::ComponentManagerExample::ComponentExample->priority
+    );
     Anansi::Component::addChannel(
         'Anansi::ComponentManagerExample::ComponentExample',
         'VALIDATE_AS_APPROPRIATE' => Anansi::ComponentManagerExample::ComponentExample->validate
@@ -50,25 +68,26 @@ Anansi::ComponentManager - A base module definition for related process manageme
 This is a base module definition for the management of modules that deal with
 related functionality.  This management module provides the mechanism to handle
 multiple related functionality modules at the same time, loading and creating an
-object of the most appropriate module to handle each situation.  In order to
-simplify the recognition of related L<Anansi::Component> modules, each component
-is required to have the same base namespace as it's manager.  Uses
+object of the most appropriate module to handle each situation by using the
+VALIDATE_AS_APPROPRIATE and PRIORITY_OF_VALIDATE component channels.  In order
+to simplify the recognition of related L<Anansi::Component> modules, each
+component is required to have the same base namespace as it's manager.  Uses
 L<Anansi::Actor>, L<Anansi::Component> I<(indirectly)>, L<Anansi::Singleton> and
 L<base>.
 
 =cut
 
 
-our $VERSION = '0.06';
+our $VERSION = '0.07';
 
 use base qw(Anansi::Singleton);
 
 use Anansi::Actor;
 
-
 my %CHANNELS;
 my %COMPONENTS;
 my %IDENTIFICATIONS;
+my %PRIORITIES;
 
 
 =head1 INHERITED METHODS
@@ -296,7 +315,10 @@ validate it's own appropriateness.  Therefore this process makes use of a
 VALIDATE_AS_APPROPRIATE component channel which is expected to return either a
 B<1> I<(one)> or a B<0> I<(zero)> representing B<appropriate> or
 B<inappropriate>.  If this component channel does not exist it is assumed that
-the component is not designed to be implemented in this way.
+the component is not designed to be implemented in this way.  A component may
+also provide a PRIORITY_OF_VALIDATE component channel to aid in validating where
+multiple components may be appropriate to different degrees.  If this component
+channel does not exist it is assumed that the component has the lowest priority.
 
 =cut
 
@@ -311,14 +333,27 @@ sub addComponent {
     }
     my $components = $self->components();
     return if(ref($components) !~ /^ARRAY$/i);
+    my $priority = $self->priorities(
+        PARAMETERS => [(@parameters)],
+    );
+    return if(!defined($priority));
     my $OBJECT;
-    foreach my $component (@{$components}) {
-        my $valid = &{\&{'Anansi::Component::channel'}}($component, 'VALIDATE_AS_APPROPRIATE', (@parameters));
-        next if(!defined($valid));
-        if($valid) {
-            $OBJECT = Anansi::Actor->new(PACKAGE => $component, (@parameters));
-            last;
+    while(0 <= $priority) {
+        my $components = $self->priorities(
+            PRIORITY => $priority,
+        );
+        next if(!defined($components));
+        next if(ref($components) !~ /^ARRAY$/i);
+        foreach my $component (@{$components}) {
+            my $valid = &{\&{'Anansi::Component::channel'}}($component, 'VALIDATE_AS_APPROPRIATE', (@parameters));
+            next if(!defined($valid));
+            if($valid) {
+                $OBJECT = Anansi::Actor->new(PACKAGE => $component, (@parameters));
+                last;
+            }
         }
+        last if(defined($OBJECT));
+        $priority--;
     }
     return if(!defined($OBJECT));
     $COMPONENTS{$package} = {} if(!defined($COMPONENTS{$package}));
@@ -553,6 +588,417 @@ sub components {
         push(@components, $module);
     }
     return [(@components)];
+}
+
+
+=head2 priorities
+
+    my $priorities = $self->priorities();
+    if(defined($priorities)) {
+        for(my $priority = $priorities; -1 < $priority; $priority--) {
+            my $components = $self->priorities(
+                PRIORITY => $priority,
+            );
+            next if(!defined($components));
+            foreach my $component (@{$components}) {
+            }
+        }
+    }
+
+=over 4
+
+=item self I<(Blessed Hash B<or> String, Required)>
+
+An object or string of this namespace.
+
+=item parameters I<(Hash, Optional)>
+
+Named parameters.
+
+=over 4
+
+=item PARAMETERS I<(Array B<or> Scalar, Optional)>
+
+An array or single value containing the parameters to pass to the
+PRIORITY_OF_VALIDATE component channel.
+
+=item PRIORITY I<(String, Optional)>
+
+Either a component namespace or a priority value of B<0> I<(zero)> or greater
+where B<0> I<(zero)> represents the lowest priority.
+
+=back
+
+=back
+
+Either returns the highest component priority, the list of all the component
+namespaces that have the component priority supplied as the I<PRIORITY>
+parameter or the component priority of the component given it's namespace
+supplied as the I<PRIORITY> parameter.
+
+=cut
+
+
+sub priorities {
+    my ($self, %parameters) = @_;
+    my $package = $self;
+    $package = ref($package) if(ref($package) !~ /^$/);
+    return if('Anansi::ComponentManager' eq $package);
+
+    my %components;
+
+    sub priorities_component {
+        my (%parameters) = @_;
+        return if(!defined($parameters{COMPONENT}));
+        return if(ref($parameters{COMPONENT}) !~ /^$/);
+        return if($parameters{COMPONENT} =~ /^\s*$/);
+        if(!defined($components{$parameters{COMPONENT}})) {
+            $components{$parameters{COMPONENT}} = {
+                HIGHER => {},
+                LOWER => {},
+                SAME => {},
+            };
+        }
+        my $prioritise = &{\&{'Anansi::Component::channel'}}($parameters{COMPONENT}, 'PRIORITY_OF_VALIDATE', (@{$parameters{PARAMETERS}}));
+        return if(!defined($prioritise));
+        return if(ref($prioritise) !~ /^HASH$/i);
+        while(my ($componentName, $componentPriority) = each(%{$prioritise})) {
+            next if(!defined($componentName));
+            next if(!defined($componentPriority));
+            next if(ref($componentPriority) !~ /^$/);
+            if($componentPriority =~ /^\s*LOWER\s*/i) {
+                $componentPriority = -1;
+            } elsif($componentPriority =~ /^\s*HIGHER\s*/i) {
+                $componentPriority = 1;
+            } elsif($componentPriority =~ /^\s*SAME\s*/i) {
+                $componentPriority = 0;
+            }
+            next if($componentPriority !~ /^\s*(|\-|\+)\d+\s*$/);
+            if($componentPriority < 0) {
+                priorities_prioritise(
+                    HIGHER => $parameters{COMPONENT},
+                    LOWER => $componentName,
+                );
+            } elsif(0 < $componentPriority) {
+                priorities_prioritise(
+                    HIGHER => $componentName,
+                    LOWER => $parameters{COMPONENT},
+                );
+            } else {
+                priorities_prioritise(
+                    SAME => [($parameters{COMPONENT}, $componentName)],
+                );
+            }
+        }
+    }
+
+    sub priorities_higher {
+        my (%parameters) = @_;
+        return if(!defined($parameters{HIGHER}));
+        return if(ref($parameters{HIGHER}) !~ /^$/);
+        return if($parameters{HIGHER} =~ /^\s*$/);
+        return if(!defined($parameters{COMPONENT}));
+        return if(ref($parameters{COMPONENT}) !~ /^$/);
+        return if($parameters{COMPONENT} =~ /^\s*$/);
+        if(!defined($components{$parameters{COMPONENT}})) {
+            $components{$parameters{COMPONENT}} = {
+                HIGHER => {},
+                LOWER => {},
+                SAME => {},
+            };
+        }
+        if(!defined($components{$parameters{HIGHER}})) {
+            $components{$parameters{HIGHER}} = {
+                HIGHER => {},
+                LOWER => {},
+                SAME => {},
+            };
+        }
+        my $isHigher = 1;
+        foreach my $lower (keys(%{${$components{$parameters{COMPONENT}}}{LOWER}})) {
+            next if(defined(${${$components{$lower}}{HIGHER}}{$parameters{HIGHER}}));
+            if(defined(${${$components{$lower}}{SAME}}{$parameters{HIGHER}})) {
+                $isHigher = 0;
+                next;
+            }
+            ${${$components{$parameters{HIGHER}}}{LOWER}}{$lower} = 0;
+            ${${$components{$lower}}{HIGHER}}{$parameters{HIGHER}} = 0;
+            my $wasHigher = priorities_higher(
+                COMPONENT => $lower,
+                HIGHER => $parameters{HIGHER},
+            );
+            if(!defined($wasHigher)) {
+            } elsif(0 == $wasHigher) {
+                priorities_same(
+                    COMPONENT => $parameters{HIGHER},
+                    SAME => $lower,
+                );
+                $isHigher = 0;
+            }
+        }
+        return isHigher;
+    }
+
+    sub priorities_lower {
+        my (%parameters) = @_;
+        return if(!defined($parameters{COMPONENT}));
+        return if(ref($parameters{COMPONENT}) !~ /^$/);
+        return if($parameters{COMPONENT} =~ /^\s*$/);
+        return if(!defined($parameters{LOWER}));
+        return if(ref($parameters{LOWER}) !~ /^$/);
+        return if($parameters{LOWER} =~ /^\s*$/);
+        if(!defined($components{$parameters{COMPONENT}})) {
+            $components{$parameters{COMPONENT}} = {
+                HIGHER => {},
+                LOWER => {},
+                SAME => {},
+            };
+        }
+        if(!defined($components{$parameters{LOWER}})) {
+            $components{$parameters{LOWER}} = {
+                HIGHER => {},
+                LOWER => {},
+                SAME => {},
+            };
+        }
+        my $isLower = 1;
+        foreach my $higher (keys(%{${$components{$parameters{COMPONENT}}}{HIGHER}})) {
+            next if(defined(${${$components{$higher}}{LOWER}}{$parameters{LOWER}}));
+            if(defined(${${$components{$higher}}{SAME}}{$parameters{LOWER}})) {
+                $isLower = 0;
+                next;
+            }
+            ${${$components{$higher}}{LOWER}}{$parameters{LOWER}} = 0;
+            ${${$components{$parameters{LOWER}}}{HIGHER}}{$higher} = 0;
+            my $wasLower = priorities_lower(
+                COMPONENT => $higher,
+                LOWER => $parameters{LOWER},
+            );
+            if(!defined($wasLower)) {
+            } elsif(0 == $wasLower) {
+                priorities_same(
+                    COMPONENT => $parameters{LOWER},
+                    SAME => $higher,
+                );
+                $isLower = 0;
+            }
+        }
+        return isLower;
+    }
+
+    sub priorities_prioritise {
+        my (%parameters) = @_;
+        if(defined($parameters{SAME})) {
+            return if(ref($parameters{SAME}) !~ /^ARRAY$/i);
+            foreach my $component (@{$parameters{SAME}}) {
+                return if(ref($component) !~ /^$/);
+                return if($component =~ /^\s*$/);
+            }
+            for(my $index = 1; $index < scalar(@{$parameters{SAME}}); $index++) {
+                next if(${$parameters{SAME}}[0] eq ${$parameters{SAME}}[$index]);
+                priorities_same(
+                    COMPONENT => ${$parameters{SAME}}[0],
+                    SAME => ${$parameters{SAME}}[$index],
+                );
+            }
+        } elsif(!defined($parameters{HIGHER})) {
+            return;
+        } elsif(ref($parameters{HIGHER}) !~ /^$/) {
+            return;
+        } elsif($parameters{HIGHER} =~ /^\s*$/) {
+            return;
+        } elsif(!defined($parameters{LOWER})) {
+            return;
+        } elsif(ref($parameters{LOWER}) !~ /^$/) {
+            return;
+        } elsif($parameters{LOWER} =~ /^\s*$/) {
+            return;
+        } elsif($parameters{HIGHER} eq $parameters{LOWER}) {
+            return;
+        } else {
+            if(!defined($components{$parameters{HIGHER}})) {
+                $components{$parameters{HIGHER}} = {
+                    HIGHER => {},
+                    LOWER => {},
+                    SAME => {},
+                };
+            }
+            if(!defined($components{$parameters{LOWER}})) {
+                $components{$parameters{LOWER}} = {
+                    HIGHER => {},
+                    LOWER => {},
+                    SAME => {},
+                };
+            }
+            if(${${$components{$parameters{HIGHER}}}{LOWER}}{$parameters{LOWER}}) {
+                return;
+            } elsif(${${$components{$parameters{HIGHER}}}{HIGHER}}{$parameters{LOWER}}) {
+                priorities_same(
+                    COMPONENT => $parameters{LOWER},
+                    SAME => $parameters{HIGHER},
+                );
+            } else {
+                ${${$components{$parameters{HIGHER}}}{LOWER}}{$parameters{LOWER}} = 0;
+                ${${$components{$parameters{LOWER}}}{HIGHER}}{$parameters{HIGHER}} = 0;
+                my $wasLower = priorities_lower(
+                    COMPONENT => $parameters{HIGHER},
+                    LOWER => $parameters{LOWER},
+                );
+                my $wasHigher = priorities_higher(
+                    COMPONENT => $parameters{LOWER},
+                    HIGHER => $parameters{HIGHER},
+                );
+            }
+        }
+    }
+
+    sub priorities_same {
+        my (%parameters) = @_;
+        return if(!defined($parameters{COMPONENT}));
+        return if(ref($parameters{COMPONENT}) !~ /^$/);
+        return if($parameters{COMPONENT} =~ /^\s*$/);
+        return if(!defined($parameters{SAME}));
+        return if(ref($parameters{SAME}) !~ /^$/);
+        return if($parameters{SAME} =~ /^\s*$/);
+        return if($parameters{COMPONENT} eq $parameters{SAME});
+        if(!defined($components{$parameters{COMPONENT}})) {
+            $components{$parameters{COMPONENT}} = {
+                HIGHER => {},
+                LOWER => {},
+                SAME => {},
+            };
+        }
+        if(!defined($components{$parameters{SAME}})) {
+            $components{$parameters{SAME}} = {
+                HIGHER => {},
+                LOWER => {},
+                SAME => {},
+            };
+        }
+        if(defined(${${$components{$parameters{COMPONENT}}}{LOWER}}{$parameters{SAME}})) {
+            delete ${${$components{$parameters{COMPONENT}}}{LOWER}}{$parameters{SAME}};
+            delete ${${$components{$parameters{SAME}}}{HIGHER}}{$parameters{COMPONENT}};
+        }
+        if(defined(${${$components{$parameters{COMPONENT}}}{HIGHER}}{$parameters{SAME}})) {
+            delete ${${$components{$parameters{SAME}}}{LOWER}}{$parameters{COMPONENT}};
+            delete ${${$components{$parameters{COMPONENT}}}{HIGHER}}{$parameters{SAME}};
+        }
+        if(!defined(${${$components{$parameters{COMPONENT}}}{SAME}}{$parameters{SAME}})) {
+            ${${$components{$parameters{COMPONENT}}}{SAME}}{$parameters{SAME}} = 0;
+            ${${$components{$parameters{SAME}}}{SAME}}{$parameters{COMPONENT}} = 0;
+            foreach my $component (keys(%{${$components{$parameters{COMPONENT}}}{SAME}})) {
+                next if($component eq $parameters{SAME});
+                next if(defined(${${$components{$component}}{SAME}}{$parameters{SAME}}));
+                if(defined(${${$components{$component}}{LOWER}}{$parameters{SAME}})) {
+                    delete ${${$components{$component}}{LOWER}}{$parameters{SAME}};
+                    delete ${${$components{$parameters{SAME}}}{HIGHER}}{$component};
+                } elsif(defined(${${$components{$component}}{HIGHER}}{$parameters{SAME}})) {
+                    delete ${${$components{$parameters{SAME}}}{LOWER}}{$component};
+                    delete ${${$components{$component}}{HIGHER}}{$parameters{SAME}};
+                }
+                ${${$components{$component}}{SAME}}{$parameters{SAME}} = 0;
+                ${${$components{$parameters{SAME}}}{SAME}}{$component} = 0;
+                foreach my $lower (keys(%{${$components{$component}}{LOWER}})) {
+                    next if(defined(${$components{$parameters{SAME}}}{$lower}));
+                    priorities_lower(
+                        COMPONENT => $parameters{SAME},
+                        LOWER => $lower,
+                    );
+                }
+                foreach my $higher (keys(%{${$components{$component}}{HIGHER}})) {
+                    next if(defined(${$components{$parameters{SAME}}}{$higher}));
+                    priorities_higher(
+                        COMPONENT => $parameters{SAME},
+                        HIGHER => $higher,
+                    );
+                }
+            }
+            foreach my $component (keys(%{${$components{$parameters{SAME}}}{SAME}})) {
+                next if($component eq $parameters{COMPONENT});
+                next if(defined(${${$components{$component}}{SAME}}{$parameters{COMPONENT}}));
+                if(defined(${${$components{$component}}{LOWER}}{$parameters{COMPONENT}})) {
+                    delete ${${$components{$component}}{LOWER}}{$parameters{COMPONENT}};
+                    delete ${${$components{$parameters{COMPONENT}}}{HIGHER}}{$component};
+                } elsif(defined(${${$components{$component}}{HIGHER}}{$parameters{COMPONENT}})) {
+                    delete ${${$components{$parameters{COMPONENT}}}{LOWER}}{$component};
+                    delete ${${$components{$component}}{HIGHER}}{$parameters{COMPONENT}};
+                }
+                ${${$components{$component}}{SAME}}{$parameters{COMPONENT}} = 0;
+                ${${$components{$parameters{COMPONENT}}}{SAME}}{$component} = 0;
+                foreach my $lower (keys(%{${$components{$component}}{LOWER}})) {
+                    next if(defined(${$components{$parameters{COMPONENT}}}{$lower}));
+                    priorities_lower(
+                        COMPONENT => $parameters{COMPONENT},
+                        LOWER => $lower,
+                    );
+                }
+                foreach my $higher (keys(%{${$components{$component}}{HIGHER}})) {
+                    next if(defined(${$components{$parameters{COMPONENT}}}{$higher}));
+                    priorities_higher(
+                        COMPONENT => $parameters{COMPONENT},
+                        HIGHER => $higher,
+                    );
+                }
+            }
+        }
+    }
+
+    my $COMPONENTS = $self->components();
+    return if(ref($COMPONENTS) !~ /^ARRAY$/i);
+    $PRIORITIES{$package} = {} if(!defined($PRIORITIES{$package}));
+    $PRIORITIES{$package} = {} if(ref($PRIORITIES{$package}) !~ /^HASH$/i);
+    if(0 == scalar(keys(%{$PRIORITIES{$package}}))) {
+        foreach my $component (@{$COMPONENTS}) {
+            priorities_component(
+                COMPONENT => $component,
+                PARAMETERS => [(@{$parameters{PARAMETERS}})],
+            );
+        }
+        my $priorities = 0;
+        my $reduced = 1;
+        while(scalar(keys(%{$PRIORITIES{$package}})) < scalar(keys(%components)) && $reduced) {
+            $reduced = 0;
+            foreach my $component (keys(%components)) {
+                next if(defined(${$PRIORITIES{$package}}{$component}));
+                my $hasLower = 0;
+                foreach my $lower (keys(%{${$components{$component}}{LOWER}})) {
+                    if(!defined(${$PRIORITIES{$package}}{$lower})) {
+                        $hasLower = 1;
+                        last;
+                    } elsif($priorities == ${$PRIORITIES{$package}}{$lower}) {
+                        $hasLower = 1;
+                        last;
+                    }
+                }
+                if(0 == $hasLower) {
+                    ${$PRIORITIES{$package}}{$component} = $priorities;
+                    foreach my $same (keys(%{${$components{$component}}{SAME}})) {
+                        ${$PRIORITIES{$package}}{$same} = $priorities;
+                    }
+                    $reduced = 1;
+                }
+            }
+            $priorities++;
+        }
+    }
+    if(!defined($parameters{PRIORITY})) {
+        my $priorities = 0;
+        foreach my $priority (keys(%{$PRIORITIES{$package}})) {
+            $priorities = ${$PRIORITIES{$package}}{$priority} if($priorities < ${$PRIORITIES{$package}}{$priority});
+        }
+        return $priorities;
+    } elsif(ref($parameters{PRIORITY}) !~ /^$/) {
+    } elsif($parameters{PRIORITY} =~ /^\s*\d+\s*$/) {
+        my @priorities;
+        foreach my $priority (keys(%{$PRIORITIES{$package}})) {
+            push(@priorities, $priority) if($parameters{PRIORITY} == ${$PRIORITIES{$package}}{$priority});
+        }
+        return if(0 == scalar(@priorities));
+        return [(@priorities)];
+    } elsif(defined(${$PRIORITIES{$package}}{$parameters{PRIORITY}})) {
+        return ${$PRIORITIES{$package}}{$parameters{PRIORITY}};
+    }
+    return;
 }
 
 
