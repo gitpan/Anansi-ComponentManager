@@ -19,3 +19,5 @@ Revision history for Perl extension Anansi::ComponentManager.
 	- added "priorities" method.
 	- emended makefile to correct E-Mail address.
         - modified the POD to describe priorities mechanism.
+0.08  Mon Jul 15 14:59:08 2013
+	- modified the POD.

@@ -78,7 +78,7 @@ L<base>.
 =cut
 
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 
 use base qw(Anansi::Singleton);
 
@@ -104,21 +104,21 @@ Declared in L<Anansi::Singleton>.
 
 =head2 finalise
 
-Declared in L<Anansi::Class>.  Intended to be overridden by an extending module.
+Declared as a virtual method in L<Anansi::Class>.
 
 =cut
 
 
 =head2 fixate
 
-Declared in L<Anansi::Singleton>.  Intended to be overridden by an extending module.
+Declared as a virtual method in L<Anansi::Singleton>.
 
 =cut
 
 
 =head2 implicate
 
-Declared in L<Anansi::Class>.  Intended to be overridden by an extending module.
+Declared as a virtual method in L<Anansi::Class>.
 
 =cut
 
@@ -132,7 +132,7 @@ Declared in L<Anansi::Class>.
 
 =head2 initialise
 
-Declared in L<Anansi::Class>.  Intended to be overridden by an extending module.
+Declared as a virtual method in L<Anansi::Class>.
 
 =cut
 
@@ -153,7 +153,7 @@ Declared in L<Anansi::Class>.
 
 =head2 reinitialise
 
-Declared in L<Anansi::Singleton>.  Intended to be overridden by an extending module.
+Declared as a virtual method in L<Anansi::Singleton>.
 
 =cut
 
@@ -397,7 +397,7 @@ The list of parameters to pass to the component's channel.
 =back
 
 Either returns an array of the available channels or passes the supplied
-parameters to the named channel.  Returns B<undef> on B<error>.
+parameters to the named channel.  Returns B<undef> on error.
 
 =cut
 
@@ -476,7 +476,7 @@ The list of parameters to pass to the component's channel.
 Either returns an array of all of the available components or an array of all
 of the channels available through an identified component or interacts with an
 identified component using one of it's channels.  Returns an B<undef> on
-B<failure>.
+failure.
 
 =cut
 
@@ -511,8 +511,9 @@ An object of this namespace.
 
 =back
 
-Generates a unique identification string.  Intended to be replaced by an
-extending module.  Indirectly called.
+Generates a B<20> I<(twenty)> digit identification string that is unique within
+the executing script.  Intended to be replaced by an extending module.
+Indirectly called.
 
 =cut
 
