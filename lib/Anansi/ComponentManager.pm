@@ -78,7 +78,7 @@ L<base>.
 =cut
 
 
-our $VERSION = '0.08';
+our $VERSION = '0.09';
 
 use base qw(Anansi::Singleton);
 
@@ -90,89 +90,126 @@ my %IDENTIFICATIONS;
 my %PRIORITIES;
 
 
-=head1 INHERITED METHODS
-
-=cut
-
-
-=head2 DESTROY
-
-Declared in L<Anansi::Singleton>.
-
-=cut
-
-
-=head2 finalise
-
-Declared as a virtual method in L<Anansi::Class>.
-
-=cut
-
-
-=head2 fixate
-
-Declared as a virtual method in L<Anansi::Singleton>.
-
-=cut
-
-
-=head2 implicate
-
-Declared as a virtual method in L<Anansi::Class>.
-
-=cut
-
-
-=head2 import
-
-Declared in L<Anansi::Class>.
-
-=cut
-
-
-=head2 initialise
-
-Declared as a virtual method in L<Anansi::Class>.
-
-=cut
-
-
-=head2 new
-
-Declared in L<Anansi::Singleton>.
-
-=cut
-
-
-=head2 old
-
-Declared in L<Anansi::Class>.
-
-=cut
-
-
-=head2 reinitialise
-
-Declared as a virtual method in L<Anansi::Singleton>.
-
-=cut
-
-
-=head2 used
-
-Declared in L<Anansi::Class>.
-
-=cut
-
-
-=head2 uses
-
-Declared in L<Anansi::Class>.
-
-=cut
-
-
 =head1 METHODS
+
+=cut
+
+
+=head2 Anansi::Class
+
+See L<Anansi::Class|Anansi::Class> for details.  A parent module of L<Anansi::Singleton|Anansi::Singleton>.
+
+=cut
+
+
+=head3 DESTROY
+
+See L<Anansi::Class::DESTROY|Anansi::Class/"DESTROY"> for details.  Overridden by L<Anansi::Singleton::DESTROY|Anansi::Singleton/"DESTROY">.
+
+=cut
+
+
+=head3 finalise
+
+See L<Anansi::Class::finalise|Anansi::Class/"finalise"> for details.  A virtual method.
+
+=cut
+
+
+=head3 implicate
+
+See L<Anansi::Class::implicate|Anansi::Class/"implicate"> for details.
+
+=cut
+
+
+=head3 import
+
+See L<Anansi::Class::import|Anansi::Class/"import"> for details.
+
+=cut
+
+
+=head3 initialise
+
+See L<Anansi::Class::initialise|Anansi::Class/"initialise"> for details.
+
+=cut
+
+
+=head3 new
+
+See L<Anansi::Class::new|Anansi::Class/"new"> for details.
+
+=cut
+
+
+=head3 old
+
+See L<Anansi::Class::old|Anansi::Class/"old"> for details.
+
+=cut
+
+
+=head3 used
+
+See L<Anansi::Class::used|Anansi::Class/"used"> for details.
+
+=cut
+
+
+=head3 uses
+
+See L<Anansi::Class::uses|Anansi::Class/"uses"> for details.
+
+=cut
+
+
+=head3 using
+
+See L<Anansi::Class::using|Anansi::Class/"using"> for details.
+
+=cut
+
+
+=head2 Anansi::Singleton
+
+See L<Anansi::Singleton|Anansi::Singleton> for details.  A parent module of L<Anansi::ComponentManager|Anansi::ComponentManager>.
+
+=cut
+
+
+=head3 Anansi::Class
+
+See L<Anansi::Class|Anansi::Class> for details.  A parent module of L<Anansi::Singleton|Anansi::Singleton>.
+
+=cut
+
+
+=head3 DESTROY
+
+See L<Anansi::Singleton::DESTROY|Anansi::Singleton/"DESTROY"> for details.  Overrides by L<Anansi::Class::DESTROY|Anansi::Class/"DESTROY">.
+
+=cut
+
+
+=head3 fixate
+
+See L<Anansi::Singleton::fixate|Anansi::Singleton/"fixate"> for details.  A virtual method.
+
+=cut
+
+
+=head3 new
+
+See L<Anansi::Singleton::new|Anansi::Singleton/"new"> for details.  Overrides by L<Anansi::Class::new|Anansi::Class/"new">.
+
+=cut
+
+
+=head3 reinitialise
+
+See L<Anansi::Singleton::reinitialise|Anansi::Singleton/"reinitialise"> for details.  A virtual method.
 
 =cut
 

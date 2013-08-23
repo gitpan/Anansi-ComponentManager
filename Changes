@@ -21,3 +21,5 @@ Revision history for Perl extension Anansi::ComponentManager.
         - modified the POD to describe priorities mechanism.
 0.08  Mon Jul 15 14:59:08 2013
 	- modified the POD.
+0.09  Fri Aug 09 15:02:01 2013
+	- modified the POD to incorporate changes in "Anansi::Class".
