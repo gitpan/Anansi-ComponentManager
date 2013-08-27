@@ -63,6 +63,30 @@ Anansi::ComponentManager - A base module definition for related process manageme
 
     1;
 
+    package main;
+
+    use Anansi::ComponentManagerExample;
+
+    my $object = Anansi::ComponentManagerExample->new();
+    my $component = $object->addComponent();
+    my $result = $object->channel(
+        $component,
+        'SOME_COMPONENT_CHANNEL',
+        someParameter => 'some data',
+        anotherParameter => 'some more data',
+    );
+
+    my $another = Anansi::ComponentManagerExample->new(
+        IDENTIFICATION => 'Another component',
+    );
+    $result = $object->channel(
+        'Another component',
+        'SOME_COMPONENT_CHANNEL',
+        aParameter => 'more data?',
+    );
+
+    1;
+
 =head1 DESCRIPTION
 
 This is a base module definition for the management of modules that deal with
@@ -71,14 +95,12 @@ multiple related functionality modules at the same time, loading and creating an
 object of the most appropriate module to handle each situation by using the
 VALIDATE_AS_APPROPRIATE and PRIORITY_OF_VALIDATE component channels.  In order
 to simplify the recognition of related L<Anansi::Component> modules, each
-component is required to have the same base namespace as it's manager.  Uses
-L<Anansi::Actor>, L<Anansi::Component> I<(indirectly)>, L<Anansi::Singleton> and
-L<base>.
+component is required to have the same base namespace as it's manager.
 
 =cut
 
 
-our $VERSION = '0.09';
+our $VERSION = '0.10';
 
 use base qw(Anansi::Singleton);
 
@@ -118,7 +140,7 @@ See L<Anansi::Class::finalise|Anansi::Class/"finalise"> for details.  A virtual 
 
 =head3 implicate
 
-See L<Anansi::Class::implicate|Anansi::Class/"implicate"> for details.
+See L<Anansi::Class::implicate|Anansi::Class/"implicate"> for details.  A virtual method.
 
 =cut
 
@@ -132,7 +154,7 @@ See L<Anansi::Class::import|Anansi::Class/"import"> for details.
 
 =head3 initialise
 
-See L<Anansi::Class::initialise|Anansi::Class/"initialise"> for details.
+See L<Anansi::Class::initialise|Anansi::Class/"initialise"> for details.  Overridden by L<Anansi::ComponentManager::initialise|Anansi::ComponentManager/"initialise">.  A virtual method.
 
 =cut
 
@@ -188,7 +210,7 @@ See L<Anansi::Class|Anansi::Class> for details.  A parent module of L<Anansi::Si
 
 =head3 DESTROY
 
-See L<Anansi::Singleton::DESTROY|Anansi::Singleton/"DESTROY"> for details.  Overrides by L<Anansi::Class::DESTROY|Anansi::Class/"DESTROY">.
+See L<Anansi::Singleton::DESTROY|Anansi::Singleton/"DESTROY"> for details.  Overrides L<Anansi::Class::DESTROY|Anansi::Class/"DESTROY">.
 
 =cut
 
@@ -202,14 +224,14 @@ See L<Anansi::Singleton::fixate|Anansi::Singleton/"fixate"> for details.  A virt
 
 =head3 new
 
-See L<Anansi::Singleton::new|Anansi::Singleton/"new"> for details.  Overrides by L<Anansi::Class::new|Anansi::Class/"new">.
+See L<Anansi::Singleton::new|Anansi::Singleton/"new"> for details.  Overrides L<Anansi::Class::new|Anansi::Class/"new">.
 
 =cut
 
 
 =head3 reinitialise
 
-See L<Anansi::Singleton::reinitialise|Anansi::Singleton/"reinitialise"> for details.  A virtual method.
+See L<Anansi::Singleton::reinitialise|Anansi::Singleton/"reinitialise"> for details.  Overridden by L<Anansi::ComponentManager::reinitialise|Anansi::ComponentManager/"reinitialise">.  A virtual method.
 
 =cut
 
@@ -364,9 +386,24 @@ sub addComponent {
     my ($self, $identification, @parameters) = @_;
     my $package = $self;
     $package = ref($self) if(ref($self) !~ /^$/);
-    $identification = $self->componentIdentification() if(!defined($identification));
-    if(defined($COMPONENTS{$package})) {
+    if(!defined($identification)) {
+        $identification = $self->componentIdentification();
+    } elsif(ref($identification) !~ /^$/) {
+        return;
+    } elsif($identification =~ /^\s*$/) {
+        return;
+    } elsif(defined($COMPONENTS{$package})) {
         return $identification if(defined(${$COMPONENTS{$package}}{$identification}));
+        my %reverse = map { ${$COMPONENTS{$package}}{$_} => $_ } (keys(%{$COMPONENTS{$package}}));
+        return $reverse{$identification} if(defined($reverse{$identification}));
+        return if(defined($IDENTIFICATIONS{$identification}));
+        %reverse = map { $IDENTIFICATIONS{$_} => $_ } (keys(%IDENTIFICATIONS));
+        return if(defined($reverse{$identification}));
+    }
+    my $alias = '';
+    if($identification !~ /^\d{20}$/) {
+        $alias = $identification;
+        $identification = $self->componentIdentification();
     }
     my $components = $self->components();
     return if(ref($components) !~ /^ARRAY$/i);
@@ -398,7 +435,7 @@ sub addComponent {
     $self->uses(
         'COMPONENT_'.$identification => $OBJECT,
     );
-    $IDENTIFICATIONS{$identification} = 1;
+    $IDENTIFICATIONS{$identification} = $alias;
     return $identification;
 }
 
@@ -523,11 +560,28 @@ sub component {
     my $package = $self;
     $package = ref($self) if(ref($self) !~ /^$/);
     return if(!defined($COMPONENTS{$package}));
-    return [( keys(%{$COMPONENTS{$package}}) )] if(0 == scalar(@_));
+    my %reverse = map { $IDENTIFICATIONS{$_} => $_ } (keys(%IDENTIFICATIONS));
+    if(0 == scalar(@_)) {
+        my @identifications;
+        foreach my $identification (keys(%{$COMPONENTS{$package}})) {
+            if(defined($IDENTIFICATIONS{$identification})) {
+                push(@identifications, $identification);
+            } elsif(defined($reverse{$identification})) {
+                push(@identifications, $reverse{$identification});
+            }
+        }
+        return [( @identifications )];
+    }
     my $identification = shift(@_);
     return if(!defined($identification));
-    return if(!defined(${$COMPONENTS{$package}}{$identification}));
-    my $OBJECT = ${$COMPONENTS{$package}}{$identification};
+    my $OBJECT;
+    if(defined(${$COMPONENTS{$package}}{$identification})) {
+        $OBJECT = ${$COMPONENTS{$package}}{$identification};
+    } elsif(defined(${$COMPONENTS{$package}}{$reverse{$identification}})) {
+        $OBJECT = ${$COMPONENTS{$package}}{$reverse{$identification}};
+    } else {
+        return;
+    }
     return $OBJECT->channel() if(0 == scalar(@_));
     my ($channel, @parameters) = @_;
     return $OBJECT->channel($channel, (@parameters));
@@ -538,7 +592,11 @@ sub component {
 
     my $identification = Anansi::ComponentManager->componentIdentification();
 
-    my $identification = $OBJECT->componentIdentification();
+    my $alias = 'An identifying phrase';
+    my $identification = $OBJECT->componentIdentification($alias);
+    if(defined($identification)) {
+        print 'The "'.$alias.'" component already exists with the "'.$identification.'" identification.'."\n";
+    }
 
 =over 4
 
@@ -546,24 +604,40 @@ sub component {
 
 An object of this namespace.
 
+=item identification I<(String, Optional)>
+
+A component identification.
+
 =back
 
-Generates a B<20> I<(twenty)> digit identification string that is unique within
-the executing script.  Intended to be replaced by an extending module.
-Indirectly called.
+Either generates a volatile B<20> I<(twenty)> digit identification string that
+is unique within the executing script or determines whether a component exists
+with the specified I<identification>.  Returns the unique identification string
+on success or an B<undef> on failure.
 
 =cut
 
 
 sub componentIdentification {
-    my ($self) = @_;
-    my ($second, $minute, $hour, $day, $month, $year) = localtime(time);
-    my $random;
-    my $identification;
-    do {
-        $random = int(rand(1000000));
-        $identification = sprintf("%4d%02d%02d%02d%02d%02d%06d", $year + 1900, $month, $day, $hour, $minute, $second, $random);
-    } while(defined($IDENTIFICATIONS{$identification}));
+    my ($self, $identification) = @_;
+    my %reverse = map { $IDENTIFICATIONS{$_} => $_ } (keys(%IDENTIFICATIONS));
+    if(!defined($identification)) {
+        my ($second, $minute, $hour, $day, $month, $year) = localtime(time);
+        my $random;
+        do {
+            $random = int(rand(1000000));
+            $identification = sprintf("%4d%02d%02d%02d%02d%02d%06d", $year + 1900, $month, $day, $hour, $minute, $second, $random);
+        } while(defined($IDENTIFICATIONS{$identification}));
+    } elsif(ref($identification) !~ /^$/) {
+        return;
+    } elsif($identification =~ /^\s*$/) {
+        return;
+    } elsif(defined($IDENTIFICATIONS{$identification})) {
+    } elsif(defined($reverse{$identification})) {
+        return $reverse{$identification};
+    } else {
+        return;
+    }
     return $identification;
 }
 
@@ -626,6 +700,53 @@ sub components {
         push(@components, $module);
     }
     return [(@components)];
+}
+
+
+=head2 initialise
+
+Overrides L<Anansi::Class::initialise|Anansi::Class/"initialise">.
+
+=over 4
+
+=item self I<(Blessed Hash, Required)>
+
+An object of this namespace.
+
+=item parameters I<(Hash, Optional)>
+
+Named parameters supplied to the L<Anansi::Singleton::new|Anansi::Singleton/"new"> method.
+
+=over 4
+
+=item IDENTIFICATION I<(String, Optional)>
+
+A unique component identification.
+
+=back
+
+=back
+
+Enables the conglomeration of L<Anansi::Singleton::new|Anansi::Singleton/"new">
+and L<Anansi::ComponentManager::addComponent|Anansi::ComponentManager/"addComponent">
+through a specified I<IDENTIFICATION> parameter.  Called just after module
+instance object creation.
+
+=cut
+
+
+sub initialise {
+    my ($self, %parameters) = @_;
+    if(defined($parameters{IDENTIFICATION})) {
+        my $identification = $parameters{IDENTIFICATION};
+        if(!defined($self->componentIdentification($identification))) {
+            delete $parameters{IDENTIFICATION};
+            $self->addComponent(
+                $identification,
+                %parameters
+            );
+        }
+    }
 }
 
 
@@ -1040,6 +1161,53 @@ sub priorities {
 }
 
 
+=head2 reinitialise
+
+Overrides L<Anansi::Singleton::reinitialise|Anansi::Singleton/"reinitialise">.
+
+=over 4
+
+=item self I<(Blessed Hash, Required)>
+
+An object of this namespace.
+
+=item parameters I<(Hash, Optional)>
+
+Named parameters supplied to the L<Anansi::Singleton::new|Anansi::Singleton/"new"> method.
+
+=over 4
+
+=item IDENTIFICATION I<(String, Optional)>
+
+A unique component identification.
+
+=back
+
+=back
+
+Enables the conglomeration of L<Anansi::Singleton::new|Anansi::Singleton/"new">
+and L<Anansi::ComponentManager::addComponent|Anansi::ComponentManager/"addComponent">
+through a specified I<IDENTIFICATION> parameter.  Called just after module
+instance object creation.
+
+=cut
+
+
+sub reinitialise {
+    my ($self, %parameters) = @_;
+    if(defined($parameters{IDENTIFICATION})) {
+        my $identification = $parameters{IDENTIFICATION};
+        if(!defined($self->componentIdentification($identification))) {
+            delete $parameters{IDENTIFICATION};
+            $self->addComponent(
+                $identification,
+                %parameters
+            );
+        }
+    }
+}
+
+
 =head2 removeChannel
 
     if(1 == Anansi::ComponentManager::removeChannel(
@@ -1131,12 +1299,21 @@ sub removeComponent {
     $package = ref($self) if(ref($self) !~ /^$/);
     return 0 if(0 == scalar(@parameters));
     return 0 if(!defined($COMPONENTS{$package}));
+    my %reverse = map { $IDENTIFICATIONS{$_} => $_ } (keys(%IDENTIFICATIONS));
     foreach my $key (@parameters) {
-        return 0 if(!defined(${$COMPONENTS{$package}}{$key}));
+        if(defined(${$COMPONENTS{$package}}{$key})) {
+        } elsif(!defined(${$COMPONENTS{$package}}{$reverse{$key}})) {
+            return 0;
+        }
     }
     foreach my $key (@parameters) {
-        delete ${$COMPONENTS{$package}}{$key};
-        $self->used('COMPONENT_'.$key);
+        if(defined(${$COMPONENTS{$package}}{$key})) {
+            delete ${$COMPONENTS{$package}}{$key};
+            $self->used('COMPONENT_'.$key);
+        } elsif(defined(${$COMPONENTS{$package}}{$reverse{$key}})) {
+            delete ${$COMPONENTS{$package}}{$reverse{$key}};
+            $self->used('COMPONENT_'.$key);
+        }
     }
     return 1;
 }

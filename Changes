@@ -23,3 +23,7 @@ Revision history for Perl extension Anansi::ComponentManager.
 	- modified the POD.
 0.09  Fri Aug 09 15:02:01 2013
 	- modified the POD to incorporate changes in "Anansi::Class".
+0.10  Fri Aug 23 15:02:34 2013
+	- modified the POD.
+	- modified "componentIdentification" to incorporate the "IDENTIFICATION" parameter.
+	- added the "initialise" and "reinitialise" methods to conglomerate component instantiation.
